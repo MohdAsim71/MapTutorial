@@ -1,13 +1,22 @@
 package com.mexcelle.maptutorial;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -15,25 +24,43 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
     public static final int PERMISSION_REQUEST_CODE = 9001;
     public static final int PLAY_SERVICES_ERROE_CODE = 9001;
     public static final int LOCATION_PERMISSION_REQUEST_CODE = 9001;
+    public static final int PERMISSIONS_REQUEST_ENABLE_GPS = 9005;
+
+
+    private final double Lat = 33.690904;
+    private final double Long = 73.051865;
 
     private boolean mLocationPermissionGranted;
     private final String TAG = String.valueOf(MainActivity.this);
-    private GoogleMap googleMap;
+    private GoogleMap googlemap;
     private MapView mapView;
+    private EditText editText;
+    private Button mbutton;
 
 
     @Override
@@ -41,15 +68,38 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
+        editText = findViewById(R.id.editTextTextPersonName);
+        mbutton = findViewById(R.id.button);
 //        setSupportActionBar(toolbar);
         isServicesOK();
         initGoogleMap();
+        mbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                geoLocate(view);
+                reverseGeoLocate(view);
+            }
+        });
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                if (googlemap != null) {
+                    googlemap.animateCamera(CameraUpdateFactory.zoomTo(3.0f));
+                    LatLng latLng = new LatLng(36.690904, 77.051865);
+                    CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 10);
+                    googlemap.animateCamera(cameraUpdate, 3, new GoogleMap.CancelableCallback() {
+                        @Override
+                        public void onFinish() {
+                            Toast.makeText(MainActivity.this, "animation finished", Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onCancel() {
+                            Toast.makeText(MainActivity.this, "animation cancellede", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
             }
         });
 
@@ -64,16 +114,70 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
 
-        mapView=findViewById(R.id.mapView);
+        mapView = findViewById(R.id.mapView);
         mapView.getMapAsync(this);
         mapView.onCreate(savedInstanceState);
 
     }
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        Log.e("map","map is ready");
+        Log.e("map", "map is ready");
+
+        // googleMap.addMarker(new MarkerOptions().position(new LatLng(Long, Lat)).title("Marker"));
+        googlemap = googleMap;
+
+//enabling UI control of map
+        googleMap.getUiSettings().setZoomControlsEnabled(true);
+        googleMap.getUiSettings().setMyLocationButtonEnabled(true);
+        googleMap.getUiSettings().setMapToolbarEnabled(true);
+        gotLlocation(Lat, Long);
 
     }
+
+    private void gotLlocation(double lat, double lang) {
+        LatLng latLng = new LatLng(lat, lang);
+        showMarelr(latLng);
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 10);
+        googlemap.moveCamera(cameraUpdate);
+    }
+
+
+    private void showMarelr(LatLng lang) {
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(lang);
+        googlemap.addMarker(markerOptions);
+
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public boolean isMapsEnabled(){
+        final LocationManager manager = (LocationManager) getSystemService( Context.LOCATION_SERVICE );
+
+        if ( !manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
+//if it is not then this method will run
+            buildAlertMessageNoGps();
+            return false;
+        }
+        return true;
+    }
+
+    private void buildAlertMessageNoGps() {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("This application requires GPS to work properly, do you want to enable it?")
+                .setCancelable(false)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(@SuppressWarnings("unused") final DialogInterface dialog, @SuppressWarnings("unused") final int id) {
+                        Intent enableGpsIntent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivityForResult(enableGpsIntent, PERMISSIONS_REQUEST_ENABLE_GPS);
+                    }
+                });
+        final AlertDialog alert = builder.create();
+        alert.show();
+    }
+
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -130,19 +234,77 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     private void initGoogleMap() {
         if (isServicesOK()) {
-            if (checkLocationPermission()) {
-                Toast.makeText(this, "Ready to map", Toast.LENGTH_SHORT).show();
+
+            if (isMapsEnabled())
+            {
+                if (checkLocationPermission()) {
+                    Toast.makeText(this, "Ready to map", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                requestLocationPermission();
             }
-        } else {
-            requestLocationPermission();
+
+            {
+
+            }
+
         }
 
 
     }
 
+    private void geoLocate(View view)
+    {
+        //this method is use get latlong from address name
+        hideSoftKeyboard(view);
+        String locationname=editText.getText().toString();
+        Geocoder geocoder=new Geocoder(this, Locale.getDefault());
+        try {
+           List<Address> addressList= geocoder.getFromLocationName(locationname,3);
+           if (addressList.size()>0)
+           {
+               Address address=addressList.get(0);
+               gotLlocation(address.getLatitude(),address.getLongitude());
+               googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(),address.getLongitude())));
 
+               Log.e("addresslocatopn",address.getAddressLine(address.getMaxAddressLineIndex()));
+               Toast.makeText(this, ""+address.getLocality(), Toast.LENGTH_SHORT).show();
+           }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void reverseGeoLocate(View view)
+    {
+        //this method is use get address name from  latlong
+        hideSoftKeyboard(view);
+        String locationname=editText.getText().toString();
+        Geocoder geocoder=new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addressList= geocoder.getFromLocation(Lat,Long,3);
+            if (addressList.size()>0)
+            {
+                Address address=addressList.get(0);
+                gotLlocation(address.getLatitude(),address.getLongitude());
+                googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(),address.getLongitude())));
+
+                Log.e("addresslocatopn",address.getAddressLine(address.getMaxAddressLineIndex()));
+                Toast.makeText(this, ""+address.getLocality(), Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+private void hideSoftKeyboard(View view)
+{
+    InputMethodManager inputMethodManager= (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+    inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(),0);
+
+}
     private boolean checkLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_DENIED;
@@ -177,7 +339,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-
     @Override
     protected void onPause() {
         mapView.onPause();
@@ -200,6 +361,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onSaveInstanceState(@NonNull Bundle outState, @NonNull PersistableBundle outPersistentState) {
         super.onSaveInstanceState(outState, outPersistentState);
         mapView.onSaveInstanceState(outState);
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode==PERMISSIONS_REQUEST_ENABLE_GPS);
+        {
+            if (isMapsEnabled())
+            {
+                Toast.makeText(this, "GPS is enable", Toast.LENGTH_SHORT).show();
+            }
+            else
+                {
+                    Toast.makeText(this, "GPS is not enable", Toast.LENGTH_SHORT).show();
+                }
+        }
+
     }
 }
 

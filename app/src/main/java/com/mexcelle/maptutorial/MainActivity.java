@@ -30,6 +30,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -69,6 +70,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private MapView mapView;
     private EditText editText;
     private Button mbutton;
+    private Button batch_location_button;
+    private TextView updateLocationTv;
 
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
@@ -82,9 +85,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Toolbar toolbar = findViewById(R.id.toolbar);
         editText = findViewById(R.id.editTextTextPersonName);
         mbutton = findViewById(R.id.button);
+        updateLocationTv = findViewById(R.id.updateLocationTv);
+        batch_location_button = findViewById(R.id.batch_location_button);
 //        setSupportActionBar(toolbar);
         isServicesOK();
         initGoogleMap();
+
+        batch_location_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+            startActivity(new Intent(MainActivity.this,BatchLocationActivity.class));
+            }
+        });
+
+
 
 
         //use to get device current location
@@ -98,6 +112,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     return;
                 }
                 Location location = locationResult.getLastLocation();
+                updateLocationTv.setText( (location.getLatitude()+":"+location.getLongitude()));
+                gotLlocation(location.getLatitude(),location.getLongitude());
+                LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                showMarelr(latLng);
                 Toast.makeText(MainActivity.this, "" + location.getLatitude() + "\n" + location.getLongitude(), Toast.LENGTH_SHORT).show();
             }
         };
@@ -150,6 +168,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
+
+
     @SuppressLint("MissingPermission")
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -176,7 +196,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-    private void showMarelr(LatLng lang) {
+    public void showMarelr(LatLng lang) {
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(lang);
         googlemap.addMarker(markerOptions);

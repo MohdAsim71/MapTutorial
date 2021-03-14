@@ -31,11 +31,19 @@
         android:visibility="gone"
         tools:layout_editor_absoluteY="-38dp" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/editTextTextPersonName"
+        android:layout_marginTop="10dp"
+        android:id="@+id/updateLocationTv"/>
+
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="421dp"
-        android:layout_height="609dp"
-        android:layout_below="@+id/editTextTextPersonName"
+        android:layout_below="@+id/updateLocationTv"
+        android:layout_height="509dp"
+        android:layout_above="@+id/batch_location_button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -81,6 +89,20 @@
         android:text="Button"
         android:layout_below="@+id/appBarLayout"
         android:layout_alignParentRight="true"
+
+        tools:layout_editor_absoluteX="305dp"
+        tools:layout_editor_absoluteY="72dp"
+        tools:ignore="MissingConstraints" />
+
+
+    <Button
+        android:id="@+id/batch_location_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Button"
+
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
 
         tools:layout_editor_absoluteX="305dp"
         tools:layout_editor_absoluteY="72dp"

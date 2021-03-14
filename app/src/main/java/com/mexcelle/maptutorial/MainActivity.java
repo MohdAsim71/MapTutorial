@@ -8,6 +8,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
@@ -16,9 +17,11 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
+import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.os.PersistableBundle;
 import android.util.Log;
 import android.view.Menu;
@@ -31,6 +34,11 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -62,7 +70,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private EditText editText;
     private Button mbutton;
 
+    private FusedLocationProviderClient fusedLocationProviderClient;
+    private LocationCallback locationCallback;
 
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,6 +85,24 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 //        setSupportActionBar(toolbar);
         isServicesOK();
         initGoogleMap();
+
+
+        //use to get device current location
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+
+                if (locationResult == null) {
+                    return;
+                }
+                Location location = locationResult.getLastLocation();
+                Toast.makeText(MainActivity.this, "" + location.getLatitude() + "\n" + location.getLongitude(), Toast.LENGTH_SHORT).show();
+            }
+        };
+        getLocationUpdate();
+
         mbutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -96,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         @Override
                         public void onCancel() {
-                            Toast.makeText(MainActivity.this, "animation cancellede", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "animation cancelled", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
@@ -120,12 +150,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
+    @SuppressLint("MissingPermission")
     @Override
     public void onMapReady(GoogleMap googleMap) {
         Log.e("map", "map is ready");
 
         // googleMap.addMarker(new MarkerOptions().position(new LatLng(Long, Lat)).title("Marker"));
         googlemap = googleMap;
+        //use for check device loacation
+       googlemap.setMyLocationEnabled(true);
 
 //enabling UI control of map
         googleMap.getUiSettings().setZoomControlsEnabled(true);
@@ -152,10 +185,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    public boolean isMapsEnabled(){
-        final LocationManager manager = (LocationManager) getSystemService( Context.LOCATION_SERVICE );
+    public boolean isMapsEnabled() {
+        final LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
-        if ( !manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
+        if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
 //if it is not then this method will run
             buildAlertMessageNoGps();
             return false;
@@ -238,8 +271,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void initGoogleMap() {
         if (isServicesOK()) {
 
-            if (isMapsEnabled())
-            {
+            if (isMapsEnabled()) {
                 if (checkLocationPermission()) {
                     Toast.makeText(this, "Ready to map", Toast.LENGTH_SHORT).show();
                 }
@@ -256,55 +288,52 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private void geoLocate(View view)
-    {
+    private void geoLocate(View view) {
         //this method is use get latlong from address name
         hideSoftKeyboard(view);
-        String locationname=editText.getText().toString();
-        Geocoder geocoder=new Geocoder(this, Locale.getDefault());
+        String locationname = editText.getText().toString();
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
         try {
-           List<Address> addressList= geocoder.getFromLocationName(locationname,3);
-           if (addressList.size()>0)
-           {
-               Address address=addressList.get(0);
-               gotLlocation(address.getLatitude(),address.getLongitude());
-               googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(),address.getLongitude())));
+            List<Address> addressList = geocoder.getFromLocationName(locationname, 3);
+            if (addressList.size() > 0) {
+                Address address = addressList.get(0);
+                gotLlocation(address.getLatitude(), address.getLongitude());
+                googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(), address.getLongitude())));
 
-               Log.e("addresslocatopn",address.getAddressLine(address.getMaxAddressLineIndex()));
-               Toast.makeText(this, ""+address.getLocality(), Toast.LENGTH_SHORT).show();
-           }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void reverseGeoLocate(View view)
-    {
-        //this method is use get address name from  latlong
-        hideSoftKeyboard(view);
-        String locationname=editText.getText().toString();
-        Geocoder geocoder=new Geocoder(this, Locale.getDefault());
-        try {
-            List<Address> addressList= geocoder.getFromLocation(Lat,Long,3);
-            if (addressList.size()>0)
-            {
-                Address address=addressList.get(0);
-                gotLlocation(address.getLatitude(),address.getLongitude());
-                googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(),address.getLongitude())));
-
-                Log.e("addresslocatopn",address.getAddressLine(address.getMaxAddressLineIndex()));
-                Toast.makeText(this, ""+address.getLocality(), Toast.LENGTH_SHORT).show();
+                Log.e("addresslocatopn", address.getAddressLine(address.getMaxAddressLineIndex()));
+                Toast.makeText(this, "" + address.getLocality(), Toast.LENGTH_SHORT).show();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-private void hideSoftKeyboard(View view)
-{
-    InputMethodManager inputMethodManager= (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-    inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(),0);
 
-}
+    private void reverseGeoLocate(View view) {
+        //this method is use get address name from  latlong
+        hideSoftKeyboard(view);
+        String locationname = editText.getText().toString();
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addressList = geocoder.getFromLocation(Lat, Long, 3);
+            if (addressList.size() > 0) {
+                Address address = addressList.get(0);
+                gotLlocation(address.getLatitude(), address.getLongitude());
+                googlemap.addMarker(new MarkerOptions().position(new LatLng(address.getLatitude(), address.getLongitude())));
+
+                Log.e("addresslocatopn", address.getAddressLine(address.getMaxAddressLineIndex()));
+                Toast.makeText(this, "" + address.getLocality(), Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void hideSoftKeyboard(View view) {
+        InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
+
+    }
+
     private boolean checkLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_DENIED;
@@ -349,6 +378,13 @@ private void hideSoftKeyboard(View view)
     protected void onDestroy() {
         mapView.onDestroy();
         super.onDestroy();
+
+        // closing of request
+
+        if (locationCallback!=null)
+        {
+            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        }
     }
 
     @Override
@@ -369,18 +405,27 @@ private void hideSoftKeyboard(View view)
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode==PERMISSIONS_REQUEST_ENABLE_GPS);
+        if (requestCode == PERMISSIONS_REQUEST_ENABLE_GPS) ;
         {
-            if (isMapsEnabled())
-            {
+            if (isMapsEnabled()) {
                 Toast.makeText(this, "GPS is enable", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "GPS is not enable", Toast.LENGTH_SHORT).show();
             }
-            else
-                {
-                    Toast.makeText(this, "GPS is not enable", Toast.LENGTH_SHORT).show();
-                }
         }
 
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private void getLocationUpdate() {
+        //method to get current location in timer
+
+        LocationRequest locationResult = LocationRequest.create();
+        locationResult.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationResult.setInterval(5000);
+        locationResult.setFastestInterval(2000);
+        fusedLocationProviderClient.requestLocationUpdates(locationResult,locationCallback, Looper.myLooper());
     }
 }
 
